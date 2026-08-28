@@ -1,0 +1,45 @@
+recipe_id,item,quantity,unit
+1,breakfast cereal,0.15,kg
+1,milk,0.5,litre
+1,seasonal fruit,2.0,serving
+2,bread,0.3,kg
+2,eggs,4.0,piece
+2,avocado,1.0,piece
+3,sweet potatoes,0.8,kg
+3,eggs,4.0,piece
+4,rice,0.4,kg
+4,beans,0.3,kg
+4,spinach,1.0,bunch
+4,onions,0.2,kg
+5,ndengu,0.3,kg
+5,maize flour,0.5,kg
+5,spinach,1.0,bunch
+6,njahi,0.3,kg
+6,rice,0.4,kg
+6,onions,0.2,kg
+7,kamande,0.3,kg
+7,rice,0.4,kg
+7,vegetables,1.0,serving
+8,chicken,0.8,kg
+8,vegetables,2.0,serving
+8,rice,0.3,kg
+9,chicken liver,0.5,kg
+9,maize flour,0.5,kg
+9,spinach,1.0,bunch
+10,beef,0.5,kg
+10,rice,0.4,kg
+10,vegetables,2.0,serving
+11,beef mince,0.5,kg
+11,vegetables,2.0,serving
+11,maize flour,0.4,kg
+12,bread,0.3,kg
+12,peanut butter,0.05,kg
+12,milk,0.5,litre
+13,bread,0.3,kg
+13,milk,0.5,litre
+14,beans,0.3,kg
+14,maize flour,0.5,kg
+14,spinach,1.0,bunch
+15,chicken wings,0.5,kg
+15,rice,0.4,kg
+15,vegetables,2.0,serving

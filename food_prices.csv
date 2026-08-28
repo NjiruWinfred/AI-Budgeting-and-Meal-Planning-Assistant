@@ -1,0 +1,31 @@
+food_id,item,product_name,brand,category,food_group,quantity,unit,price_kes,price_per_base_unit,base_unit,is_perishable,storage_type,child_friendly,price_source,price_checked_date
+1,rice,Naivas White Long Grain Rice 5Kg,Naivas,Staples,Carbohydrate,5.0,kg,699,139.8,kg,False,Pantry,True,Naivas Online,2026-08-28
+2,rice,Jamii Pure Mwea Pishori Rice 5Kg,Jamii,Staples,Carbohydrate,5.0,kg,999,199.8,kg,False,Pantry,True,Naivas Online,2026-08-28
+3,rice,Daawat Deli Basmati Rice 5Kg,Daawat,Staples,Carbohydrate,5.0,kg,1299,259.8,kg,False,Pantry,True,Naivas Online,2026-08-28
+4,maize flour,Soko Maize Meal 2Kg,Soko,Staples,Carbohydrate,2.0,kg,149,74.5,kg,False,Pantry,True,Naivas Online,2026-08-28
+5,wheat flour,Exe All Purpose Flour 2Kg,Exe,Staples,Carbohydrate,2.0,kg,155,77.5,kg,False,Pantry,True,Naivas Online,2026-08-28
+6,beans,Naivas Wairimu Beans 1Kg,Naivas,Legumes,Plant Protein,1.0,kg,219,219.0,kg,False,Pantry,True,Naivas Online,2026-08-28
+7,yellow beans,Farmnaivas Yellow Beans 1Kg,Farmnaivas,Legumes,Plant Protein,1.0,kg,229,229.0,kg,False,Pantry,True,Naivas Online,2026-08-28
+8,njahi,Naivas Njahi 1Kg,Naivas,Legumes,Plant Protein,1.0,kg,219,219.0,kg,False,Pantry,True,Naivas Online,2026-08-28
+9,kamande,Naivas Kamande Beans 1Kg,Naivas,Legumes,Plant Protein,1.0,kg,299,299.0,kg,False,Pantry,True,Naivas Online,2026-08-28
+10,milk,Naivas Fino UHT Milk 500Ml,Naivas,Dairy,Dairy,0.5,litre,52,104.0,litre,True,Fridge,True,Naivas Online,2026-08-28
+11,milk,Fresha Whole Milk 500Ml Pouch,Fresha,Dairy,Dairy,0.5,litre,56,112.0,litre,True,Fridge,True,Naivas Online,2026-08-28
+12,milk,Brookside UHT Milk 1 Ltr,Brookside,Dairy,Dairy,1.0,litre,159,159.0,litre,True,Fridge,True,Naivas Online,2026-08-28
+13,milk,Bio Fresh Semi Skimmed Milk 2 L,Bio,Dairy,Dairy,2.0,litre,299,149.5,litre,True,Fridge,True,Naivas Online,2026-08-28
+14,mala,K.C.C Plain Mala 1Ltr Bottle,KCC,Dairy,Dairy,1.0,litre,165,165.0,litre,True,Fridge,True,Naivas Online,2026-08-28
+15,yoghurt,Delamere Strawberry Fruit Yoghurt 450Ml Cup,Delamere,Dairy,Dairy,0.45,litre,138,306.67,litre,True,Fridge,True,Naivas Online,2026-08-28
+16,chicken,Naivas Chicken Capon 1.2Kg,Naivas,Animal Protein,Protein,1.2,kg,659,549.17,kg,True,Fridge,True,Naivas Online,2026-08-28
+17,chicken,Naivas Chicken Capon 1.5Kg,Naivas,Animal Protein,Protein,1.5,kg,824,549.33,kg,True,Fridge,True,Naivas Online,2026-08-28
+18,chicken,Naivas Chicken Kienyeji 1.2Kg,Naivas,Animal Protein,Protein,1.2,kg,919,765.83,kg,True,Fridge,True,Naivas Online,2026-08-28
+19,chicken wings,Naivas Chicken Wings 500G,Naivas,Animal Protein,Protein,0.5,kg,365,730.0,kg,True,Fridge,True,Naivas Online,2026-08-28
+20,chicken liver,Naivas Chicken Liver 500G,Naivas,Animal Protein,Protein,0.5,kg,213,426.0,kg,True,Fridge,True,Naivas Online,2026-08-28
+21,beef,Naivas Beef Meat On Bone 500G,Naivas,Animal Protein,Protein,0.5,kg,350,700.0,kg,True,Fridge,True,Naivas Online,2026-08-28
+22,beef mince,Naivas Beef Mince Regular 500G,Naivas,Animal Protein,Protein,0.5,kg,400,800.0,kg,True,Fridge,True,Naivas Online,2026-08-28
+23,bread,FM Wholemeal Bread 600G,FM,Breakfast,Carbohydrate,0.6,kg,88,146.67,kg,False,Pantry,True,Naivas Online,2026-08-28
+24,bread,Fresh Wholemeal Bread 1.5Kg,Fresh,Breakfast,Carbohydrate,1.5,kg,199,132.67,kg,False,Pantry,True,Naivas Online,2026-08-28
+25,bread,Fresh Sweet Bread 400Gm,Fresh,Breakfast,Carbohydrate,0.4,kg,49,122.5,kg,False,Pantry,True,Naivas Online,2026-08-28
+26,breakfast cereal,Weetabix Original 850G,Weetabix,Breakfast,Whole Grain,0.85,kg,649,763.53,kg,False,Pantry,True,Naivas Online,2026-08-28
+27,peanut butter,Blue Band Peanut Butter Crunchy 800G,Blue Band,Breakfast,Healthy Fat,0.8,kg,599,748.75,kg,False,Pantry,True,Naivas Online,2026-08-28
+28,sugar,Naivas Local Sugar White 2Kg,Naivas,Cooking Essentials,Sweetener,2.0,kg,305,152.5,kg,False,Pantry,True,Naivas Online,2026-08-28
+29,cooking oil,Masterchef Cooking Oil 5Ltr,Masterchef,Cooking Essentials,Fat,5.0,litre,1329,265.8,litre,False,Pantry,True,Naivas Online,2026-08-28
+30,grapes,Fresh Red Seedless Grapes 500G,Fresh Produce,Fruits,Fruit,0.5,kg,429,858.0,kg,True,Fridge,True,Naivas Online,2026-08-28

@@ -1,0 +1,16 @@
+recipe_id,recipe_name,meal_type,servings,prep_time_minutes,child_friendly,dietary_tags
+1,Oats and Fruit Breakfast,Breakfast,2,10,True,"healthy,budget-conscious"
+2,Egg and Wholemeal Toast,Breakfast,2,15,True,"healthy,child-friendly"
+3,Sweet Potato and Egg Breakfast,Breakfast,2,30,True,"healthy,child-friendly"
+4,Rice and Beans,Lunch/Dinner,2,45,True,"healthy,budget-conscious"
+5,Ndengu Stew and Ugali,Lunch/Dinner,2,50,True,"healthy,kenyan"
+6,Njahi Stew and Rice,Lunch/Dinner,2,60,True,"healthy,kenyan"
+7,Kamande and Rice,Lunch/Dinner,2,60,True,"healthy,kenyan"
+8,Chicken and Vegetables,Dinner,2,60,True,"healthy,child-friendly"
+9,Chicken Liver and Ugali,Dinner,2,45,True,budget-conscious
+10,Beef Stew and Rice,Dinner,2,60,True,kenyan
+11,Beef Mince and Vegetables,Dinner,2,45,True,child-friendly
+12,Peanut Butter Toast and Milk,Breakfast,2,10,True,quick
+13,Milk and Bread Breakfast,Breakfast,2,10,True,"quick,budget-conscious"
+14,Beans and Ugali,Lunch/Dinner,2,45,True,"budget-conscious,kenyan"
+15,Chicken Wings and Rice,Dinner,2,55,True,child-friendly
