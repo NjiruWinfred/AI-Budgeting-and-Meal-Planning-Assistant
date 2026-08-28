@@ -63,8 +63,6 @@ def init_app_tables():
     cur = conn.cursor()
     cur.execute(
         """
-            cur.execute(
-        """
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL,
