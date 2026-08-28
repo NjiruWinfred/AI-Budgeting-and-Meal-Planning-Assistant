@@ -1,4 +1,4 @@
-# %%writefile frontend.py
+%%writefile frontend.py
 # ---------------------------------------------------------------------------
 # Run via: subprocess.Popen(["streamlit", "run", "frontend.py",
 #                             "--server.port", "8501", "--server.headless", "true"])
