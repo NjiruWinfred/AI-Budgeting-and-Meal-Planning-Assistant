@@ -10,15 +10,13 @@ import sqlite3
 import json
 import re
 import statistics
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from google import genai
-from typing import List, Dict, Optional, Literal
-from fastapi import FastAPI, HTTPException, Query
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION
@@ -63,17 +61,12 @@ def init_app_tables():
     cur = conn.cursor()
     cur.execute(
         """
-        CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            item TEXT NOT NULL,
-            amount REAL NOT NULL,
-            category TEXT NOT NULL,
-            expense_type TEXT NOT NULL DEFAULT 'food',
-            notes TEXT
-        )
-        """
-    )
+        CREATE TABLE IF NOT EXISTS user_profile (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            income REAL,
+            food_budget REAL,
+            family_size INTEGER,
+            dietary_needs TEXT
         )
         """
     )
@@ -85,6 +78,7 @@ def init_app_tables():
             item TEXT NOT NULL,
             amount REAL NOT NULL,
             category TEXT NOT NULL,
+            expense_type TEXT NOT NULL DEFAULT 'food',
             notes TEXT
         )
         """
@@ -134,6 +128,7 @@ class ExpenseOut(BaseModel):
     expense_type: str
     notes: str
     disclaimer: str = DISCLAIMER
+
 
 # ---------------------------------------------------------------------------
 # APP
@@ -363,7 +358,21 @@ def classify_expense(item_name: str) -> str:
 # ---------------------------------------------------------------------------
 # EXPENSE LOGGING + BUDGET ANALYTICS
 # ---------------------------------------------------------------------------
-@app.post("/expense", response_model=ExpenseOut)
+def get_expenses_raw(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict]:
+    conn = get_write_conn()
+    cur = conn.cursor()
+    if start_date and end_date:
+        cur.execute(
+            "SELECT * FROM expenses WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC",
+            (start_date, end_date),
+        )
+    else:
+        cur.execute("SELECT * FROM expenses ORDER BY date DESC, id DESC")
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
 @app.post("/expense", response_model=ExpenseOut)
 def add_expense(expense: ExpenseIn):
     if expense.expense_type == "custom":
@@ -407,21 +416,6 @@ def clear_expenses():
     return {"status": "cleared", "disclaimer": DISCLAIMER}
 
 
-def get_expenses_raw(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict]:
-    conn = get_write_conn()
-    cur = conn.cursor()
-    if start_date and end_date:
-        cur.execute(
-            "SELECT * FROM expenses WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC",
-            (start_date, end_date),
-        )
-    else:
-        cur.execute("SELECT * FROM expenses ORDER BY date DESC, id DESC")
-    rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return rows
-
-
 def compute_budget_summary(start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict:
     profile = get_user_profile()
     expenses = get_expenses_raw(start_date, end_date)
@@ -449,215 +443,3 @@ def compute_budget_summary(start_date: Optional[str] = None, end_date: Optional[
                 {
                     "category": cat,
                     "planned": round(planned, 2),
-                    "actual": round(spent, 2),
-                    "over_by_pct": round(((spent - planned) / planned) * 100, 1),
-                }
-            )
-
-    unusual_expenses = []
-    by_cat_amounts: Dict[str, List[float]] = {}
-    for e in expenses:
-        by_cat_amounts.setdefault(e["category"], []).append(e["amount"])
-    for e in expenses:
-        amounts = by_cat_amounts[e["category"]]
-        if len(amounts) >= 3:
-            mean = statistics.mean(amounts)
-            stdev = statistics.pstdev(amounts)
-            if stdev > 0 and e["amount"] > mean + 1.5 * stdev:
-                unusual_expenses.append(
-                    {
-                        "id": e["id"],
-                        "date": e["date"],
-                        "item": e["item"],
-                        "amount": e["amount"],
-                        "category": e["category"],
-                        "category_average": round(mean, 2),
-                    }
-                )
-
-        return {
-        "total_spent": round(total_spent, 2),
-        "food_total": round(food_total, 2),
-        "custom_total": round(custom_total, 2),
-        "food_budget": food_budget,
-        "remaining_budget": round(max(food_budget - total_spent, 0.0), 2),
-        "percent_of_budget_used": round((total_spent / food_budget) * 100, 1) if food_budget > 0 else 0.0,
-        "by_category": {k: round(v, 2) for k, v in by_category.items()},
-        "planned_per_category": planned_per_category,
-        "flagged_categories": flagged_categories,
-        "unusual_expenses": unusual_expenses,
-        "expense_count": len(expenses),
-    }
-
-
-@app.get("/budget-summary")
-def budget_summary(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
-    summary = compute_budget_summary(start_date, end_date)
-    summary["disclaimer"] = DISCLAIMER
-    return summary
-
-
-# ---------------------------------------------------------------------------
-# SAVINGS TARGET RECOMMENDATION
-# ---------------------------------------------------------------------------
-class SavingsOut(BaseModel):
-    disposable_income: float
-    recommended_rate_pct: float
-    recommended_monthly_savings: float
-    narrative: str
-    disclaimer: str = DISCLAIMER
-
-
-@app.post("/savings-target", response_model=SavingsOut)
-def savings_target():
-    profile = get_user_profile()
-    if not profile:
-        raise HTTPException(status_code=404, detail="No profile has been set yet.")
-
-    summary = compute_budget_summary()
-    disposable = profile["income"] - summary["total_spent"]
-
-    if disposable <= 0:
-        rate = 0.0
-    elif disposable < profile["income"] * 0.2:
-        rate = 0.10
-    else:
-        rate = 0.20
-
-    recommended_amount = max(disposable * rate, 0.0)
-
-    prompt = f"""
-You are a household budgeting assistant. All figures are in {CURRENCY}.
-
-Household profile: {json.dumps(profile, default=str)}
-Current spending summary: {json.dumps(summary, default=str)}
-Disposable income after food budget: {disposable}
-Rule-based recommended monthly savings: {recommended_amount} (a {rate*100:.0f}% savings rate)
-
-Write a short (3-5 sentence) plain-language explanation of this savings
-recommendation for the household, referencing their actual food budget
-utilization and family size. Be encouraging but realistic. Do not present
-this as professional financial advice. Report all monetary values in {CURRENCY}.
-"""
-    try:
-        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        narrative = response.text
-    except Exception as exc:
-        narrative = (
-            f"Based on your income of {CURRENCY} {profile['income']:,.2f} and food budget of "
-            f"{CURRENCY} {profile['food_budget']:,.2f}, we recommend saving about "
-            f"{CURRENCY} {recommended_amount:,.2f} per month ({rate*100:.0f}% of your disposable income). "
-            f"(Note: AI narrative generation failed: {exc})"
-        )
-
-    return SavingsOut(
-        disposable_income=round(disposable, 2),
-        recommended_rate_pct=round(rate * 100, 1),
-        recommended_monthly_savings=round(recommended_amount, 2),
-        narrative=narrative,
-    )
-
-
-# ---------------------------------------------------------------------------
-# CHAT CONTEXT BUILDER
-# ---------------------------------------------------------------------------
-def build_context(message: str) -> Dict:
-    keywords = extract_keywords(message)
-
-    food_prices = query_food_prices(keywords)
-    recipes = query_recipes(keywords)
-    recipe_ids = [r.get("recipe_id") for r in recipes if r.get("recipe_id") is not None]
-    ingredients = query_ingredients_for_recipes(recipe_ids)
-
-    ingredient_item_names = list({ing["item"] for ing in ingredients if ing.get("item")})
-    ingredient_prices = query_prices_for_items(ingredient_item_names)
-
-    profile = get_user_profile()
-    budget_summary = compute_budget_summary()
-    recent_expenses = get_expenses_raw()[:20]
-
-    return {
-        "keywords": keywords,
-        "food_prices": food_prices,
-        "recipes": recipes,
-        "recipe_ingredients": ingredients,
-        "ingredient_prices": ingredient_prices,
-        "user_profile": profile,
-        "budget_summary": budget_summary,
-        "recent_expenses": recent_expenses,
-    }
-
-
-# ---------------------------------------------------------------------------
-# GEMINI CHAT PIPELINE
-# ---------------------------------------------------------------------------
-SYSTEM_INSTRUCTION = f"""You are a household budgeting and healthy meal-planning assistant
-serving a household in Kenya. All prices in the provided data are in Kenyan
-Shillings ({CURRENCY}). You are given a user's household profile (income,
-food budget, family size, dietary needs), their logged expenses, a computed
-budget summary (spend by category, planned vs actual, flagged overspending
-categories, unusual/outlier expenses), and locally sourced grocery data
-(food_prices, recipes, recipe_ingredients, ingredient_prices) pulled from a
-real SQLite database. Use ONLY the provided data as your source of truth —
-do not invent products, prices, or figures not present in the context.
-Always report costs in {CURRENCY}. Give practical, budget-conscious,
-nutritionally sensible suggestions. Show simple math (price per serving,
-weekly/monthly totals) when relevant. Reference the user's actual flagged
-categories or unusual expenses when relevant to their question. Keep answers
-concise and use markdown formatting (bullet points, bold, small tables) for
-readability. If the data provided is insufficient to answer precisely, say
-so honestly rather than guessing."""
-
-
-def call_gemini(user_message: str, context: Dict, spent_so_far: float) -> str:
-    profile = context.get("user_profile")
-    profile_block = (
-        json.dumps(profile, indent=2, default=str)
-        if profile
-        else "No profile has been set yet. Ask the user to fill in the sidebar profile form."
-    )
-
-    prompt = f"""
-{SYSTEM_INSTRUCTION}
-
-## USER PROFILE
-{profile_block}
-
-## BUDGET SUMMARY (computed from logged expenses, {CURRENCY})
-{json.dumps(context['budget_summary'], indent=2, default=str)}
-
-## RECENT LOGGED EXPENSES
-{json.dumps(context['recent_expenses'], indent=2, default=str)}
-
-## MATCHING FOOD PRICES
-{json.dumps(context['food_prices'], indent=2, default=str)}
-
-## MATCHING RECIPES
-{json.dumps(context['recipes'], indent=2, default=str)}
-
-## INGREDIENTS FOR MATCHED RECIPES
-{json.dumps(context['recipe_ingredients'], indent=2, default=str)}
-
-## KES PRICES FOR THOSE SPECIFIC INGREDIENTS
-{json.dumps(context['ingredient_prices'], indent=2, default=str)}
-
-## USER QUESTION
-{user_message}
-
-Respond directly to the user's question using the data above. Report all
-monetary values in {CURRENCY}.
-"""
-    response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-    return response.text
-
-
-@app.post("/chat", response_model=ChatOut)
-def chat(chat_in: ChatIn):
-    if not chat_in.message or not chat_in.message.strip():
-        raise HTTPException(status_code=400, detail="Message cannot be empty.")
-    context = build_context(chat_in.message)
-    try:
-        reply_text = call_gemini(chat_in.message, context, chat_in.spent_so_far or 0.0)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Gemini generation failed: {exc}")
-    return ChatOut(reply=reply_text, context_used=context, disclaimer=DISCLAIMER)
