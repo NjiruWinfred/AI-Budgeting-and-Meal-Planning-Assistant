@@ -17,6 +17,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from google import genai
+from typing import List, Dict, Optional, Literal
+from fastapi import FastAPI, HTTPException, Query
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION
@@ -61,12 +63,19 @@ def init_app_tables():
     cur = conn.cursor()
     cur.execute(
         """
-        CREATE TABLE IF NOT EXISTS user_profile (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            income REAL,
-            food_budget REAL,
-            family_size INTEGER,
-            dietary_needs TEXT
+            cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            item TEXT NOT NULL,
+            amount REAL NOT NULL,
+            category TEXT NOT NULL,
+            expense_type TEXT NOT NULL DEFAULT 'food',
+            notes TEXT
+        )
+        """
+    )
         )
         """
     )
@@ -114,6 +123,8 @@ class ExpenseIn(BaseModel):
     item: str = Field(..., min_length=1)
     amount: float = Field(..., gt=0)
     notes: str = ""
+    expense_type: Literal["food", "custom"] = "food"
+    custom_category: Optional[str] = None
 
 
 class ExpenseOut(BaseModel):
@@ -122,9 +133,9 @@ class ExpenseOut(BaseModel):
     item: str
     amount: float
     category: str
+    expense_type: str
     notes: str
     disclaimer: str = DISCLAIMER
-
 
 # ---------------------------------------------------------------------------
 # APP
@@ -355,13 +366,18 @@ def classify_expense(item_name: str) -> str:
 # EXPENSE LOGGING + BUDGET ANALYTICS
 # ---------------------------------------------------------------------------
 @app.post("/expense", response_model=ExpenseOut)
+@app.post("/expense", response_model=ExpenseOut)
 def add_expense(expense: ExpenseIn):
-    category = classify_expense(expense.item)
+    if expense.expense_type == "custom":
+        category = (expense.custom_category or "Other").strip() or "Other"
+    else:
+        category = classify_expense(expense.item)
+
     conn = get_write_conn()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO expenses (date, item, amount, category, notes) VALUES (?, ?, ?, ?, ?)",
-        (expense.date, expense.item, expense.amount, category, expense.notes),
+        "INSERT INTO expenses (date, item, amount, category, expense_type, notes) VALUES (?, ?, ?, ?, ?, ?)",
+        (expense.date, expense.item, expense.amount, category, expense.expense_type, expense.notes),
     )
     conn.commit()
     new_id = cur.lastrowid
@@ -372,17 +388,14 @@ def add_expense(expense: ExpenseIn):
         item=expense.item,
         amount=expense.amount,
         category=category,
+        expense_type=expense.expense_type,
         notes=expense.notes,
     )
 
 
 @app.get("/expenses")
-def list_expenses():
-    conn = get_write_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM expenses ORDER BY date DESC, id DESC")
-    rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
+def list_expenses(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
+    rows = get_expenses_raw(start_date, end_date)
     return {"expenses": rows, "disclaimer": DISCLAIMER}
 
 
@@ -396,21 +409,29 @@ def clear_expenses():
     return {"status": "cleared", "disclaimer": DISCLAIMER}
 
 
-def get_expenses_raw() -> List[Dict]:
+def get_expenses_raw(start_date: Optional[str] = None, end_date: Optional[str] = None) -> List[Dict]:
     conn = get_write_conn()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM expenses ORDER BY date DESC, id DESC")
+    if start_date and end_date:
+        cur.execute(
+            "SELECT * FROM expenses WHERE date BETWEEN ? AND ? ORDER BY date DESC, id DESC",
+            (start_date, end_date),
+        )
+    else:
+        cur.execute("SELECT * FROM expenses ORDER BY date DESC, id DESC")
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
     return rows
 
 
-def compute_budget_summary() -> Dict:
+def compute_budget_summary(start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict:
     profile = get_user_profile()
-    expenses = get_expenses_raw()
+    expenses = get_expenses_raw(start_date, end_date)
     food_budget = profile["food_budget"] if profile else 0.0
 
     total_spent = sum(e["amount"] for e in expenses)
+    food_total = sum(e["amount"] for e in expenses if e.get("expense_type") == "food")
+    custom_total = sum(e["amount"] for e in expenses if e.get("expense_type") == "custom")
 
     by_category: Dict[str, float] = {}
     for e in expenses:
@@ -456,8 +477,10 @@ def compute_budget_summary() -> Dict:
                     }
                 )
 
-    return {
+        return {
         "total_spent": round(total_spent, 2),
+        "food_total": round(food_total, 2),
+        "custom_total": round(custom_total, 2),
         "food_budget": food_budget,
         "remaining_budget": round(max(food_budget - total_spent, 0.0), 2),
         "percent_of_budget_used": round((total_spent / food_budget) * 100, 1) if food_budget > 0 else 0.0,
@@ -470,8 +493,8 @@ def compute_budget_summary() -> Dict:
 
 
 @app.get("/budget-summary")
-def budget_summary():
-    summary = compute_budget_summary()
+def budget_summary(start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None)):
+    summary = compute_budget_summary(start_date, end_date)
     summary["disclaimer"] = DISCLAIMER
     return summary
 
@@ -494,7 +517,7 @@ def savings_target():
         raise HTTPException(status_code=404, detail="No profile has been set yet.")
 
     summary = compute_budget_summary()
-    disposable = profile["income"] - profile["food_budget"]
+    disposable = profile["income"] - summary["total_spent"]
 
     if disposable <= 0:
         rate = 0.0
