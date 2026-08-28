@@ -442,4 +442,5 @@ def compute_budget_summary(start_date: Optional[str] = None, end_date: Optional[
             flagged_categories.append(
                 {
                     "category": cat,
-                    "planned": round(planned, 2),
+                    "planned": round(planned, 2), }
+                
