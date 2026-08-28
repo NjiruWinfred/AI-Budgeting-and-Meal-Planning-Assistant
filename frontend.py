@@ -1,4 +1,4 @@
-# %%writefile frontend.py
+# frontend.py
 # ---------------------------------------------------------------------------
 # Run via: subprocess.Popen(["streamlit", "run", "frontend.py",
 #                             "--server.port", "8501", "--server.headless", "true"])
@@ -76,20 +76,6 @@ def log_expense(exp_date, item, amount, notes, expense_type="food", custom_categ
         st.error(f"Could not log expense: {exc}")
         return None
 
-st.subheader("📅 View Period")
-view_mode = st.radio("Show spending for:", ["All Time", "This Month", "Custom Range"], horizontal=True)
-
-start_date_param, end_date_param = None, None
-if view_mode == "Custom Range":
-    col_a, col_b = st.columns(2)
-    with col_a:
-        range_start = st.date_input("From", value=date.today().replace(day=1))
-    with col_b:
-        range_end = st.date_input("To", value=date.today())
-    start_date_param, end_date_param = str(range_start), str(range_end)
-elif view_mode == "This Month":
-    start_date_param = str(date.today().replace(day=1))
-    end_date_param = str(date.today())
 
 def fetch_budget_summary(start_date=None, end_date=None):
     try:
@@ -127,7 +113,7 @@ def send_chat_message(message: str, spent_so_far: float):
 
 
 # ---------------------------------------------------------------------------
-# SIDEBAR: PROFILE
+# SIDEBAR: PROFILE + EXPENSE LOGGING
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.header("👨‍👩‍👧‍👦 Household Profile")
@@ -159,15 +145,29 @@ with st.sidebar:
     st.subheader("🧾 Log an Expense")
     with st.form("expense_form", clear_on_submit=True):
         exp_date = st.date_input("Date", value=date.today())
-        exp_item = st.text_input("Item (e.g. maize flour, tomatoes)")
+        expense_type_choice = st.radio(
+            "Expense Type", ["Food", "Custom (Other)"], horizontal=True,
+            help="Food expenses are auto-matched to local prices. Custom is for rent, transport, school fees, etc.",
+        )
+        exp_item = st.text_input("Item (e.g. maize flour, tomatoes — or 'rent', 'transport')")
+        custom_category = ""
+        if expense_type_choice == "Custom (Other)":
+            custom_category = st.text_input("Category (e.g. Rent, Transport, School Fees, Airtime)")
         exp_amount = st.number_input(f"Amount ({CURRENCY})", min_value=0.0, step=10.0)
         exp_notes = st.text_input("Notes (optional)")
         exp_submitted = st.form_submit_button("➕ Add Expense")
+
         if exp_submitted:
             if not exp_item.strip() or exp_amount <= 0:
                 st.warning("Enter an item name and an amount greater than 0.")
+            elif expense_type_choice == "Custom (Other)" and not custom_category.strip():
+                st.warning("Enter a category name for this custom expense.")
             else:
-                result = log_expense(exp_date, exp_item.strip(), exp_amount, exp_notes)
+                result = log_expense(
+                    exp_date, exp_item.strip(), exp_amount, exp_notes,
+                    expense_type="custom" if expense_type_choice == "Custom (Other)" else "food",
+                    custom_category=custom_category.strip() if custom_category else None,
+                )
                 if result:
                     st.success(f"Logged '{result['item']}' under **{result['category']}**")
                     st.rerun()
@@ -181,6 +181,21 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 st.title("🥗 AI Household Budgeting & Healthy Meal-Planning Assistant")
 st.caption("AI BuildFest 2026 — Track 3")
+
+st.subheader("📅 View Period")
+view_mode = st.radio("Show spending for:", ["All Time", "This Month", "Custom Range"], horizontal=True)
+
+start_date_param, end_date_param = None, None
+if view_mode == "Custom Range":
+    col_a, col_b = st.columns(2)
+    with col_a:
+        range_start = st.date_input("From", value=date.today().replace(day=1))
+    with col_b:
+        range_end = st.date_input("To", value=date.today())
+    start_date_param, end_date_param = str(range_start), str(range_end)
+elif view_mode == "This Month":
+    start_date_param = str(date.today().replace(day=1))
+    end_date_param = str(date.today())
 
 profile = st.session_state.profile
 summary = fetch_budget_summary(start_date_param, end_date_param) if profile else None
@@ -197,9 +212,10 @@ if profile and summary:
     col3.metric("Remaining Budget", f"{CURRENCY} {remaining:,.2f}")
 
     st.caption(
-    f"🍲 Food spending: {CURRENCY} {summary['food_total']:,.2f}  |  "
-    f"🏠 Other household spending: {CURRENCY} {summary['custom_total']:,.2f}"
+        f"🍲 Food spending: {CURRENCY} {summary['food_total']:,.2f}  |  "
+        f"🏠 Other household spending: {CURRENCY} {summary['custom_total']:,.2f}"
     )
+
     st.subheader("📊 Budget Utilization")
     st.progress(pct_used, text=f"{summary['percent_of_budget_used']:.1f}% of food budget used")
 
@@ -223,7 +239,11 @@ if profile and summary:
             "Planned": [summary["planned_per_category"].get(c, 0.0) for c in cats],
             "Actual": [summary["by_category"].get(c, 0.0) for c in cats],
         }).set_index("Category")
-        st.bar_chart(df)
+        try:
+            st.bar_chart(df)
+        except Exception:
+            st.warning("Chart couldn't render — showing table instead.")
+            st.dataframe(df)
     else:
         st.info("Log some expenses to see your category breakdown.")
 
@@ -258,37 +278,28 @@ if profile and summary:
             st.info(rec["narrative"])
 
     # ---- Expense log ----
-        st.divider()
-    st.subheader("🧾 Log an Expense")
-    with st.form("expense_form", clear_on_submit=True):
-        exp_date = st.date_input("Date", value=date.today())
-        expense_type_choice = st.radio(
-            "Expense Type", ["Food", "Custom (Other)"], horizontal=True,
-            help="Food expenses are auto-matched to local prices. Custom is for rent, transport, school fees, etc.",
-        )
-        exp_item = st.text_input("Item (e.g. maize flour, tomatoes — or 'rent', 'transport')")
-        custom_category = ""
-        if expense_type_choice == "Custom (Other)":
-            custom_category = st.text_input("Category (e.g. Rent, Transport, School Fees, Airtime)")
-        exp_amount = st.number_input(f"Amount ({CURRENCY})", min_value=0.0, step=10.0)
-        exp_notes = st.text_input("Notes (optional)")
-        exp_submitted = st.form_submit_button("➕ Add Expense")
-
-        if exp_submitted:
-            if not exp_item.strip() or exp_amount <= 0:
-                st.warning("Enter an item name and an amount greater than 0.")
-            elif expense_type_choice == "Custom (Other)" and not custom_category.strip():
-                st.warning("Enter a category name for this custom expense.")
+    st.divider()
+    with st.expander("📋 View Full Expense Log"):
+        try:
+            exp_params = {}
+            if start_date_param and end_date_param:
+                exp_params = {"start_date": start_date_param, "end_date": end_date_param}
+            exp_resp = requests.get(f"{BACKEND_URL}/expenses", params=exp_params, timeout=10).json()
+            if exp_resp["expenses"]:
+                st.dataframe(pd.DataFrame(exp_resp["expenses"]), use_container_width=True)
             else:
-                result = log_expense(
-                    exp_date, exp_item.strip(), exp_amount, exp_notes,
-                    expense_type="custom" if expense_type_choice == "Custom (Other)" else "food",
-                    custom_category=custom_category.strip() if custom_category else None,
-                )
-                if result:
-                    st.cache_data.clear()
-                    st.success(f"Logged '{result['item']}' under **{result['category']}**")
-                    st.rerun()
+                st.caption("No expenses logged yet for this period.")
+        except requests.exceptions.RequestException as exc:
+            st.error(f"Could not load expenses: {exc}")
+
+else:
+    col1.metric("Monthly Food Budget", "—")
+    col2.metric("Spent So Far", "—")
+    col3.metric("Remaining Budget", "—")
+    st.info("👈 Set up your household profile in the sidebar to enable budget tracking.")
+
+st.divider()
+
 # ---------------------------------------------------------------------------
 # CHAT INTERFACE
 # ---------------------------------------------------------------------------
