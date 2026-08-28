@@ -58,23 +58,45 @@ def fetch_profile():
         return None
 
 
-def log_expense(exp_date, item, amount, notes):
+def log_expense(exp_date, item, amount, notes, expense_type="food", custom_category=None):
     try:
-        resp = requests.post(
-            f"{BACKEND_URL}/expense",
-            json={"date": str(exp_date), "item": item, "amount": amount, "notes": notes},
-            timeout=15,
-        )
+        payload = {
+            "date": str(exp_date),
+            "item": item,
+            "amount": amount,
+            "notes": notes,
+            "expense_type": expense_type,
+        }
+        if custom_category:
+            payload["custom_category"] = custom_category
+        resp = requests.post(f"{BACKEND_URL}/expense", json=payload, timeout=15)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as exc:
         st.error(f"Could not log expense: {exc}")
         return None
 
+st.subheader("📅 View Period")
+view_mode = st.radio("Show spending for:", ["All Time", "This Month", "Custom Range"], horizontal=True)
 
-def fetch_budget_summary():
+start_date_param, end_date_param = None, None
+if view_mode == "Custom Range":
+    col_a, col_b = st.columns(2)
+    with col_a:
+        range_start = st.date_input("From", value=date.today().replace(day=1))
+    with col_b:
+        range_end = st.date_input("To", value=date.today())
+    start_date_param, end_date_param = str(range_start), str(range_end)
+elif view_mode == "This Month":
+    start_date_param = str(date.today().replace(day=1))
+    end_date_param = str(date.today())
+
+def fetch_budget_summary(start_date=None, end_date=None):
     try:
-        resp = requests.get(f"{BACKEND_URL}/budget-summary", timeout=10)
+        params = {}
+        if start_date and end_date:
+            params = {"start_date": start_date, "end_date": end_date}
+        resp = requests.get(f"{BACKEND_URL}/budget-summary", params=params, timeout=10)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException:
@@ -161,7 +183,7 @@ st.title("🥗 AI Household Budgeting & Healthy Meal-Planning Assistant")
 st.caption("AI BuildFest 2026 — Track 3")
 
 profile = st.session_state.profile
-summary = fetch_budget_summary() if profile else None
+summary = fetch_budget_summary(start_date_param, end_date_param) if profile else None
 
 col1, col2, col3 = st.columns(3)
 
@@ -174,6 +196,10 @@ if profile and summary:
     col2.metric("Spent So Far", f"{CURRENCY} {total_spent:,.2f}")
     col3.metric("Remaining Budget", f"{CURRENCY} {remaining:,.2f}")
 
+    st.caption(
+    f"🍲 Food spending: {CURRENCY} {summary['food_total']:,.2f}  |  "
+    f"🏠 Other household spending: {CURRENCY} {summary['custom_total']:,.2f}"
+    )
     st.subheader("📊 Budget Utilization")
     st.progress(pct_used, text=f"{summary['percent_of_budget_used']:.1f}% of food budget used")
 
@@ -232,25 +258,37 @@ if profile and summary:
             st.info(rec["narrative"])
 
     # ---- Expense log ----
-    st.divider()
-    with st.expander("📋 View Full Expense Log"):
-        try:
-            exp_resp = requests.get(f"{BACKEND_URL}/expenses", timeout=10).json()
-            if exp_resp["expenses"]:
-                st.dataframe(pd.DataFrame(exp_resp["expenses"]), use_container_width=True)
+        st.divider()
+    st.subheader("🧾 Log an Expense")
+    with st.form("expense_form", clear_on_submit=True):
+        exp_date = st.date_input("Date", value=date.today())
+        expense_type_choice = st.radio(
+            "Expense Type", ["Food", "Custom (Other)"], horizontal=True,
+            help="Food expenses are auto-matched to local prices. Custom is for rent, transport, school fees, etc.",
+        )
+        exp_item = st.text_input("Item (e.g. maize flour, tomatoes — or 'rent', 'transport')")
+        custom_category = ""
+        if expense_type_choice == "Custom (Other)":
+            custom_category = st.text_input("Category (e.g. Rent, Transport, School Fees, Airtime)")
+        exp_amount = st.number_input(f"Amount ({CURRENCY})", min_value=0.0, step=10.0)
+        exp_notes = st.text_input("Notes (optional)")
+        exp_submitted = st.form_submit_button("➕ Add Expense")
+
+        if exp_submitted:
+            if not exp_item.strip() or exp_amount <= 0:
+                st.warning("Enter an item name and an amount greater than 0.")
+            elif expense_type_choice == "Custom (Other)" and not custom_category.strip():
+                st.warning("Enter a category name for this custom expense.")
             else:
-                st.caption("No expenses logged yet.")
-        except requests.exceptions.RequestException as exc:
-            st.error(f"Could not load expenses: {exc}")
-
-else:
-    col1.metric("Monthly Food Budget", "—")
-    col2.metric("Spent So Far", "—")
-    col3.metric("Remaining Budget", "—")
-    st.info("👈 Set up your household profile in the sidebar to enable budget tracking.")
-
-st.divider()
-
+                result = log_expense(
+                    exp_date, exp_item.strip(), exp_amount, exp_notes,
+                    expense_type="custom" if expense_type_choice == "Custom (Other)" else "food",
+                    custom_category=custom_category.strip() if custom_category else None,
+                )
+                if result:
+                    st.cache_data.clear()
+                    st.success(f"Logged '{result['item']}' under **{result['category']}**")
+                    st.rerun()
 # ---------------------------------------------------------------------------
 # CHAT INTERFACE
 # ---------------------------------------------------------------------------
