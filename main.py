@@ -23,7 +23,7 @@ from google import genai
 # ---------------------------------------------------------------------------
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 DB_PATH = "budget.db"
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 CURRENCY = "KES"
 
 if not GEMINI_API_KEY:
