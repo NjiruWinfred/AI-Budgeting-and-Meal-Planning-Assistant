@@ -3,6 +3,6 @@ uvicorn[standard]>=0.35.0
 pydantic>=2.11.0
 google-genai>=1.20.0
 httpx
-pandas==2.2.3
-requests==2.32.3
-streamlit==1.39.0
+pandas>=2.2.3
+requests>=2.32.3
+streamlit>=1.39.0
