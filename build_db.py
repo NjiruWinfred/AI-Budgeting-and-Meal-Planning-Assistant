@@ -4,7 +4,7 @@ import sqlite3
 
 food_prices = pd.read_csv("food_prices.csv")
 recipes = pd.read_csv("recipes.csv")
-recipe_ingredients = pd.read_csv("recipe_ingredient.csv")
+recipe_ingredients = pd.read_csv("recipe_ingredients.csv")
 
 conn = sqlite3.connect("budget.db")
 food_prices.to_sql("food_prices", conn, if_exists="replace", index=False)
